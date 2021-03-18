@@ -32,8 +32,8 @@ const unsigned char name[][32] = {\
 #define A_METASPRITE_O(code,pal)\
 {\
         0,      0,      (code)+0,   pal, \
-        0,      8,      (code)+1,   pal, \
-        8,      0,      (code)+2,   pal, \
+        8,      0,      (code)+1,   pal, \
+        0,      8,      (code)+2,   pal, \
         8,      8,      (code)+3,   pal, \
         128}
 
@@ -41,14 +41,36 @@ const unsigned char name[][32] = {\
 #define A_METASPRITE_O_FH(code,pal)\
 {\
         8,      0,      (code)+0,   (pal)|OAM_FLIP_H, \
-        8,      8,      (code)+1,   (pal)|OAM_FLIP_H, \
-        0,      0,      (code)+2,   (pal)|OAM_FLIP_H, \
+        0,      0,      (code)+1,   (pal)|OAM_FLIP_H, \
+        8,      8,      (code)+2,   (pal)|OAM_FLIP_H, \
         0,      8,      (code)+3,   (pal)|OAM_FLIP_H, \
-        128}    
+        128}
+
+// define a 2x3 metasprite
+#define A_METASPRITE_B(code,pal)\
+{\
+        0,      0,      (code)+0,   pal, \
+        8,      0,      (code)+1,   pal, \
+        0,      8,      (code)+2,   pal, \
+        8,      8,      (code)+3,   pal, \
+        0,      16,      (code)+4,   pal, \
+        8,      16,      (code)+5,   pal, \
+        128}
+
+// define a 2x3 metasprite, flipped horizontally
+#define A_METASPRITE_B_FH(code,pal)\
+{\
+        8,      0,      (code)+0,   (pal)|OAM_FLIP_H, \
+        0,      0,      (code)+1,   (pal)|OAM_FLIP_H, \
+        8,      8,      (code)+2,   (pal)|OAM_FLIP_H, \
+        0,      8,      (code)+3,   (pal)|OAM_FLIP_H, \
+        8,      16,     (code)+4,   (pal)|OAM_FLIP_H, \
+        0,      16,     (code)+5,   (pal)|OAM_FLIP_H, \
+        128}
 
 A_LIST(plr_sprite)
-A_METASPRITE_O(0x80, 0),
-A_METASPRITE_O_FH(0x80, 0)
+A_METASPRITE_B(0x80, 0),
+A_METASPRITE_B_FH(0x80, 0)
 A_END
 
 /*{pal:"nes",layout:"nes"}*/
