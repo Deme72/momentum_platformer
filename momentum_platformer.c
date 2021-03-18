@@ -137,12 +137,12 @@ void main(void) {
     if(pad&PAD_LEFT){
     	panim = 1;
       	if(x > 8)
-    	   x -= 2; 
+    	   x -= 1; 
     }
     else if(pad&PAD_RIGHT){
     	panim = 0;
       	if(x < 232)
-    	   x += 2; 
+    	   x += 1; 
     }
     next = 0;
     next = oam_meta_spr(x, 183, next, plr_sprite[panim]);
