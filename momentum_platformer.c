@@ -23,34 +23,33 @@
 #include "vrambuf.h"
 //#link "vrambuf.c"
 
+#define A_LIST(name)\
+const unsigned char name[][32] = {\
 
-
+#define A_END };
 
 // define a 2x2 metasprite
-#define DEF_METASPRITE_2x2(name,code,pal)\
-const unsigned char name[]={\
+#define A_METASPRITE_O(code,pal)\
+{\
         0,      0,      (code)+0,   pal, \
         0,      8,      (code)+1,   pal, \
         8,      0,      (code)+2,   pal, \
         8,      8,      (code)+3,   pal, \
-        128};
+        128}
 
 // define a 2x2 metasprite, flipped horizontally
-#define DEF_METASPRITE_2x2_FLIP(name,code,pal)\
-const unsigned char name[]={\
+#define A_METASPRITE_O_FH(code,pal)\
+{\
         8,      0,      (code)+0,   (pal)|OAM_FLIP_H, \
         8,      8,      (code)+1,   (pal)|OAM_FLIP_H, \
         0,      0,      (code)+2,   (pal)|OAM_FLIP_H, \
         0,      8,      (code)+3,   (pal)|OAM_FLIP_H, \
-        128};
+        128}    
 
-
-
-
-DEF_METASPRITE_2x2(plr_stand, 0xd8, 0);
-DEF_METASPRITE_2x2_FLIP(plr_stand_f, 0xd8, 0);
-DEF_METASPRITE_2x2(door_sprite, 0xc4, 0);
-
+A_LIST(plr_sprite)
+A_METASPRITE_O(0x80, 0),
+A_METASPRITE_O_FH(0x80, 0)
+A_END
 
 /*{pal:"nes",layout:"nes"}*/
 const char PALETTE[32] =
@@ -60,6 +59,7 @@ const char PALETTE[32] =
 0x02, 0x38, 0x20, 0x00, // background palette 0
 0x1C, 0x20, 0x2C, 0x00, // background palette 1
 0x00, 0x1A, 0x20, 0x00, // background palette 2
+  
 0x23, 0x31, 0x41, 0x00, // sprite palette 0
 0x00, 0x37, 0x25, 0x00, // sprite palette 1
 0x36, 0x21, 0x19, 0x00, // sprite palette 2
@@ -81,19 +81,18 @@ void setup_graphics() {
   set_vram_update(updbuf);
 }
 
-byte x;
 
 byte next;
 
-char dir = 1;
-// 32-character array for string-building
-char str[32];
 
  // generally before game loop (in main)
 // main function, run after console reset
 void main(void) {
-  
-  x = 10;
+  char pad;	// controller flags
+  byte x = 10; // player X val
+  byte panim = 0;
+  // 32-character array for string-building
+  char str[32];
   // clear string array
   memset(str, 0, sizeof(str));
   
@@ -111,12 +110,20 @@ void main(void) {
   
   // infinite loop
   while (1){
+    // poll controller
+    pad = pad_poll(1);
+    if(pad&PAD_LEFT){
+    	panim = 1;
+      	if(x > 8)
+    	   x -= 2; 
+    }
+    else if(pad&PAD_RIGHT){
+    	panim = 0;
+      	if(x < 232)
+    	   x += 2; 
+    }
     next = 0;
-    if(dir == 1)
-    	next = oam_meta_spr(x, 183, next, plr_stand);
-    else
-    	next = oam_meta_spr(x, 183, next, plr_stand_f);
-    next = oam_meta_spr(224, 183, next, door_sprite);
+    next = oam_meta_spr(x, 183, next, plr_sprite[panim]);
     if(next != 0)
        oam_hide_rest(next);
     if(x >= 208){
@@ -126,11 +133,6 @@ void main(void) {
        sprintf(str, "           ");
        vrambuf_put(NTADR_A(2, 5), str, 32);
     }
-    x += dir; 
-    if(x >= 230)
-      dir = -1;
-    if(x <= 8)
-      dir = 1;
     ppu_wait_frame();
   }
 }
