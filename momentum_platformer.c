@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
 // include NESLIB header
 #include "neslib.h"
 
@@ -22,6 +21,9 @@
 // VRAM update buffer
 #include "vrambuf.h"
 //#link "vrambuf.c"
+
+#define NES_MIRRORING 1
+
 
 #define A_LIST(name)\
 const unsigned char name[][32] = {\
@@ -119,13 +121,6 @@ void main(void) {
   memset(str, 0, sizeof(str));
   
   // write text to name table
-  vram_adr(NTADR_A(2,2));		// set address
-  vram_write("This is", 7);	// write bytes to video RAM
-  vram_adr(NTADR_A(2,3));
-  vram_write("Demetrius Reynolds's", 20);
-  vram_adr(NTADR_A(2,4));
-  vram_write("first NES 'Game'!", 17);
-  vram_adr(NTADR_A(0,25));
   vram_fill(0xc1,32);
   
   setup_graphics();
@@ -145,16 +140,9 @@ void main(void) {
     	   x += 1; 
     }
     next = 0;
-    next = oam_meta_spr(x, 183, next, plr_sprite[panim]);
+    next = oam_meta_spr(x, 167, next, plr_sprite[panim]);
     if(next != 0)
        oam_hide_rest(next);
-    if(x >= 208){
-       sprintf(str, "On the door");
-       vrambuf_put(NTADR_A(2, 5), str, 32);
-    } else if(str[0] = 'O')  {
-       sprintf(str, "           ");
-       vrambuf_put(NTADR_A(2, 5), str, 32);
-    }
     ppu_wait_frame();
   }
 }
