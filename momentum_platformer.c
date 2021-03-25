@@ -74,8 +74,8 @@ const unsigned char name[][32] = {\
         128}
 
 A_LIST(plr_sprite)
-A_METASPRITE_B(0x80, 0),
-A_METASPRITE_B_FH(0x80, 0)
+A_METASPRITE_B(0x0, 0),
+A_METASPRITE_B_FH(0x0, 0)
 A_END
 
 /*{pal:"nes",layout:"nes"}*/
@@ -88,7 +88,7 @@ const char PALETTE[32] =
 0x00, 0x1A, 0x20, 0x00, // background palette 2
   
 0x01, 0x13, 0x41, 0x00, // sprite palette 0
-0x0F, 0x24, 0x23, 0x00, // sprite palette 1
+0x0D, 0x14, 0x24, 0x00, // sprite palette 1
 0x36, 0x21, 0x19, 0x00, // sprite palette 2
 0x1D, 0x37, 0x2B, // sprite palette 3
 };
@@ -103,6 +103,8 @@ void setup_graphics() {
   ppu_on_all();
   // clear vram buffer
   vrambuf_clear();
+  bank_bg(0);
+  bank_spr(1);
   
   // set NMI handler
   set_vram_update(updbuf);
@@ -116,9 +118,11 @@ byte next;
 // main function, run after console reset
 void main(void) {
   char pad;	// controller flags
-  byte x = 10; // player X val
+  int x = 64; // player X val
   int sx = 0;
+  byte cycle = 0; //gets incremeted every loop, used for spacing things out on certain frames
   byte panim = 0;
+  byte speed = 1;
   // 32-character array for string-building
   char str[32];
   // clear string array
@@ -135,30 +139,36 @@ void main(void) {
   // infinite loop
   while (1){
     // poll controller
+    if((cycle &63) == 63)
+      speed++;
+    // speed increases every 64th frame
+    // since spped is going to be variable it is important to get this right
+    // Works for most reasonable speeds
     pad = pad_poll(1);
     if(pad&PAD_LEFT){
     	panim = 1;
-      	if(x > 8){
-          if((x < 32 && (sx > 0)))
-            sx -= 1;
+      	if(x > speed +32){
+          if((x < 256 && (sx > 0)))
+            sx -= speed;
           else
-    	    x -= 1;
+    	    x -= speed;
         }
     }
     else if(pad&PAD_RIGHT){
     	panim = 0;
-      	if(x < 232){
-          if((x > 100))
-            sx += 1;
+      	if(x + speed < 928){
+          if((x > 400 && (sx < 1024)))
+            sx += speed;
           else
-    	    x += 1;
+    	    x += speed;
         }
     }
-    scroll(sx, 0);
+    scroll(sx>>2, 0);
     next = 0;
-    next = oam_meta_spr(x, 167, next, plr_sprite[panim]);
+    next = oam_meta_spr(x>>2, 167, next, plr_sprite[panim]);
     if(next != 0)
        oam_hide_rest(next);
+    cycle++;
     ppu_wait_frame();
   }
 }
