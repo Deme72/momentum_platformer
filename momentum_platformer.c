@@ -22,6 +22,9 @@
 #include "vrambuf.h"
 //#link "vrambuf.c"
 
+#include "ArchRoom.h"
+#include "PlatformRoom.h"
+
 #define NES_MIRRORING 1
 
 
@@ -78,14 +81,14 @@ A_END
 /*{pal:"nes",layout:"nes"}*/
 const char PALETTE[32] =
 {
-0x21, // screen color (b)
+0x0F, // screen color (b)
 // m, c, w, null
-0x02, 0x38, 0x20, 0x00, // background palette 0
+0x0C, 0x1C, 0x2C, 0x00, // background palette 0
 0x1C, 0x20, 0x2C, 0x00, // background palette 1
 0x00, 0x1A, 0x20, 0x00, // background palette 2
   
-0x23, 0x31, 0x41, 0x00, // sprite palette 0
-0x0F, 0x14, 0x23, 0x00, // sprite palette 1
+0x01, 0x13, 0x41, 0x00, // sprite palette 0
+0x0F, 0x24, 0x23, 0x00, // sprite palette 1
 0x36, 0x21, 0x19, 0x00, // sprite palette 2
 0x1D, 0x37, 0x2B, // sprite palette 3
 };
@@ -114,6 +117,7 @@ byte next;
 void main(void) {
   char pad;	// controller flags
   byte x = 10; // player X val
+  int sx = 0;
   byte panim = 0;
   // 32-character array for string-building
   char str[32];
@@ -122,7 +126,10 @@ void main(void) {
   
   // write text to name table
   vram_fill(0xc1,32);
-  
+  vram_adr(NTADR_A(0,0));
+  vram_write(ArchRoom, 960);
+  vram_adr(NTADR_B(0,0));
+  vram_write(PlatformRoom, 960);
   setup_graphics();
   
   // infinite loop
@@ -131,14 +138,23 @@ void main(void) {
     pad = pad_poll(1);
     if(pad&PAD_LEFT){
     	panim = 1;
-      	if(x > 8)
-    	   x -= 1; 
+      	if(x > 8){
+          if((x < 32 && (sx > 0)))
+            sx -= 1;
+          else
+    	    x -= 1;
+        }
     }
     else if(pad&PAD_RIGHT){
     	panim = 0;
-      	if(x < 232)
-    	   x += 1; 
+      	if(x < 232){
+          if((x > 100))
+            sx += 1;
+          else
+    	    x += 1;
+        }
     }
+    scroll(sx, 0);
     next = 0;
     next = oam_meta_spr(x, 167, next, plr_sprite[panim]);
     if(next != 0)
