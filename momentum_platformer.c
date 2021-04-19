@@ -24,6 +24,7 @@
 
 #include "ArchRoom.h"
 #include "PlatformRoom.h"
+#include "CharSprites.h"
 
 #define NES_MIRRORING 1
 
@@ -72,11 +73,11 @@ const unsigned char name[][32] = {\
         8,      16,     (code)+4,   (pal)|OAM_FLIP_H, \
         0,      16,     (code)+5,   (pal)|OAM_FLIP_H, \
         128}
-
+/*
 A_LIST(plr_sprite)
 A_METASPRITE_B(0x0, 0),
 A_METASPRITE_B_FH(0x0, 0)
-A_END
+A_END*/
 
 /*{pal:"nes",layout:"nes"}*/
 const char PALETTE[32] =
@@ -84,13 +85,13 @@ const char PALETTE[32] =
 0x0F, // screen color (b)
 // m, c, w, null
 0x0C, 0x1C, 0x2C, 0x00, // background palette 0
-0x1C, 0x20, 0x2C, 0x00, // background palette 1
-0x00, 0x1A, 0x20, 0x00, // background palette 2
+0x2D, 0x2D, 0x2D, 0x00, // background palette 1
+0x2D, 0x2D, 0x2D, 0x00, // background palette 2
   
-0x01, 0x13, 0x41, 0x00, // sprite palette 0
-0x0D, 0x14, 0x24, 0x00, // sprite palette 1
-0x36, 0x21, 0x19, 0x00, // sprite palette 2
-0x1D, 0x37, 0x2B, // sprite palette 3
+0x2D, 0x2D, 0x2D, 0x00, // sprite palette 0
+0x0F, 0x14, 0x22, 0x00, // sprite palette 1
+0x30, 0x30, 0x31, 0x00, // sprite palette 2
+0x30, 0x30, 0x30, // sprite palette 3
 };
 
 // setup PPU and tables
@@ -112,17 +113,54 @@ void setup_graphics() {
 
 
 byte next;
+int xpos = 50, ypos = 167;
+int scrollx, scrollmin, scrollmax;
+byte pdir = 0;
+byte pshot = 0;
+byte pmov = 0;
+
+void setScrollBounds(int minx, int maxx){
+  while(minx > 512){
+    minx -= 512;
+    maxx -= 512;
+    scrollx -= 2048;
+  }
+  scrollmin = minx;
+  scrollmax = maxx;
+}
 
 
- // generally before game loop (in main)
-// main function, run after console reset
+byte move(int dx, int dy){
+  byte ret = 0;
+  ypos += dy;
+  if(dx < 0){
+    if(xpos + dx > 24){
+      if((xpos < 256 && (scrollx > (scrollmin<<1))))
+        scrollx += dx;
+      else
+        xpos += dx;
+    } else
+    	ret |= 1;
+    
+  }
+  else if (dx > 0){
+    if(xpos + dx < 928){
+      if((xpos > 400 && (scrollx < (scrollmax<<1))))
+        scrollx += dx;
+      else
+        xpos += dx;
+    } else
+    ret |= 2;
+  }
+  return ret;
+}
+
 void main(void) {
   char pad;	// controller flags
   int x = 64; // player X val
   int sx = 0;
   byte cycle = 0; //gets incremeted every loop, used for spacing things out on certain frames
-  byte panim = 0;
-  byte speed = 1;
+  int speed = 6;
   // 32-character array for string-building
   char str[32];
   // clear string array
@@ -135,40 +173,35 @@ void main(void) {
   vram_adr(NTADR_B(0,0));
   vram_write(PlatformRoom, 960);
   setup_graphics();
+  setScrollBounds(0, 512);
   
   // infinite loop
   while (1){
     // poll controller
-    if((cycle &63) == 63)
-      speed++;
-    // speed increases every 64th frame
-    // since spped is going to be variable it is important to get this right
-    // Works for most reasonable speeds
     pad = pad_poll(1);
     if(pad&PAD_LEFT){
-    	panim = 1;
-      	if(x > speed +32){
-          if((x < 256 && (sx > 0)))
-            sx -= speed;
-          else
-    	    x -= speed;
-        }
+    	move(-speed, 0);
+    	pdir = 6;
+      	pmov = 3;
     }
     else if(pad&PAD_RIGHT){
-    	panim = 0;
-      	if(x + speed < 928){
-          if((x > 400 && (sx < 1024)))
-            sx += speed;
-          else
-    	    x += speed;
-        }
+    	move(speed, 0);
+  	pdir = 0;
+      	pmov = 3;
     }
-    scroll(sx>>2, 0);
+    else{
+      pmov = 0;
+    }
+    if((pad&PAD_A)&&!pshot)
+      pshot = 6;
+    scroll(scrollx>>2, 0);
     next = 0;
-    next = oam_meta_spr(x>>2, 167, next, plr_sprite[panim]);
+    next = oam_meta_spr((xpos>>2)-1, ypos, next, plr_sprite[pdir + (pmov&(cycle>>3)) + (pmov&2) + (pshot&&!pmov)]);
     if(next != 0)
        oam_hide_rest(next);
     cycle++;
+    if(pshot)
+      pshot--;
     ppu_wait_frame();
   }
 }
