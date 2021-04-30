@@ -119,6 +119,7 @@ int scrollx, scrollmin, scrollmax;
 byte pdir = 0;
 byte pshot = 0;
 byte pmov = 0;
+int pfall = 0;
 //both screens collision data 32*30 * 2 / 4 tiles per byte
 
 void setScrollBounds(int minx, int maxx){
@@ -134,9 +135,19 @@ void setScrollBounds(int minx, int maxx){
 
 byte move(int dx, int dy){
   byte ret = 0;
-  ypos += dy;
+  if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, 0, dy>>1))
+    ypos += dy;
+  else{
+    if(pfall > 0){
+       pfall-=4;
+      if(pfall < 4)
+        pfall = 2;
+    }
+    else
+       pfall+=4;
+  }
   if(dx < 0){
-    if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx>>2, dy >>2)){
+    if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx, 0)){
       if(xpos + dx > 24){
         if((xpos < 256 && (scrollx > (scrollmin<<1))))
           scrollx += dx;
@@ -147,7 +158,7 @@ byte move(int dx, int dy){
     }
   }
   else if (dx > 0){
-    if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx>>2, dy>>2)|1){
+    if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx, 0)){
       if(xpos + dx < 928){
         if((xpos > 400 && (scrollx < (scrollmax<<1))))
           scrollx += dx;
@@ -163,8 +174,6 @@ byte move(int dx, int dy){
 
 void main(void) {
   char pad;	// controller flags
-  int x = 64; // player X val
-  int sx = 0;
   byte cycle = 0; //gets incremeted every loop, used for spacing things out on certain frames
   int speed = 6;
   // 32-character array for string-building
@@ -179,7 +188,7 @@ void main(void) {
   importRoom(ArchRoom, 0);
   vram_adr(NTADR_B(0,0));
   vram_write(PlatformRoom, 960);
-  importRoom(PlatformRoom, ~0);
+  importRoom(PlatformRoom, 1);
   setup_graphics();
   setScrollBounds(0, 512);
   
@@ -187,20 +196,23 @@ void main(void) {
   while (1){
     // poll controller
     pad = pad_poll(1);
+    if((pad&PAD_A) && checkJump(xpos>>2, ypos>>2, scrollx>>2))
+      pfall = -16;
     if(pad&PAD_LEFT){
-    	move(-speed, 0);
+    	move(-speed, pfall);
     	pdir = 6;
       	pmov = 3;
     }
     else if(pad&PAD_RIGHT){
-    	move(speed, 0);
+    	move(speed, pfall);
   	pdir = 0;
       	pmov = 3;
     }
     else{
+      move(0, pfall);
       pmov = 0;
     }
-    if((pad&PAD_A)&&!pshot)
+    if((pad&PAD_B)&&!pshot)
       pshot = 6;
     scroll(scrollx>>2, 0);
     next = 0;
@@ -210,6 +222,7 @@ void main(void) {
     cycle++;
     if(pshot)
       pshot--;
+    pfall++;
     ppu_wait_frame();
   }
 }
