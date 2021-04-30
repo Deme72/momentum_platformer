@@ -90,9 +90,9 @@ const char PALETTE[32] =
 0x2D, 0x2D, 0x2D, 0x00, // background palette 2
   
 0x2D, 0x2D, 0x2D, 0x00, // sprite palette 0
-0x0F, 0x14, 0x22, 0x00, // sprite palette 1
-0x30, 0x30, 0x31, 0x00, // sprite palette 2
-0x30, 0x30, 0x30, // sprite palette 3
+0x0F, 0x04, 0x22, 0x00, // sprite palette 1
+0x21, 0x31, 0x31, 0x00, // sprite palette 2
+0x0F, 0x05, 0x15, // sprite palette 3
 };
 
 // setup PPU and tables
@@ -112,6 +112,18 @@ void setup_graphics() {
   set_vram_update(updbuf);
 }
 
+struct bullet{
+  int x;
+  int y;
+  int dir;
+};
+
+struct squidEnemy{
+  int x;
+  int y;
+  bool alive;
+  struct bullet bull;
+};
 
 byte next;
 int xpos = 50, ypos = 668;
@@ -120,7 +132,10 @@ byte pdir = 0;
 byte pshot = 0;
 byte pmov = 0;
 int pfall = 0;
+char sliding = 0;
+struct bullet shots[3] = {{0, 0, 0},{0, 0, 0},{0, 0, 0}};
 //both screens collision data 32*30 * 2 / 4 tiles per byte
+struct squidEnemy enemies[3] = {{0, 0, 0},{0, 0, 0},{0, 0, 0}};
 
 void setScrollBounds(int minx, int maxx){
   while(minx > 512){
@@ -135,7 +150,7 @@ void setScrollBounds(int minx, int maxx){
 
 byte move(int dx, int dy){
   byte ret = 0;
-  if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, 0, dy>>1))
+  if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, 0, dy>>1, sliding))
     ypos += dy;
   else{
     if(pfall > 0){
@@ -147,10 +162,18 @@ byte move(int dx, int dy){
        pfall+=4;
   }
   if(dx < 0){
-    if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx, 0)){
+    if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx, 0, sliding)){
       if(xpos + dx > 24){
-        if((xpos < 256 && (scrollx > (scrollmin<<1))))
+        if((xpos < 256 && (scrollx > (scrollmin<<1)))){
+          shots[0].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+          shots[1].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+          shots[2].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+          enemies[0].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+          enemies[1].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+          enemies[2].x -= ((scrollx+dx)>>2) - (scrollx>>2);
           scrollx += dx;
+          
+        }
         else
           xpos += dx;
       } else
@@ -158,10 +181,17 @@ byte move(int dx, int dy){
     }
   }
   else if (dx > 0){
-    if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx, 0)){
+    if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx, 0, sliding)){
       if(xpos + dx < 928){
-        if((xpos > 400 && (scrollx < (scrollmax<<1))))
+        if((xpos > 400 && (scrollx < (scrollmax<<1)))){
+          shots[0].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+          shots[1].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+          shots[2].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+          enemies[0].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+          enemies[1].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+          enemies[2].x -= ((scrollx+dx)>>2) - (scrollx>>2);
           scrollx += dx;
+        }
         else
           xpos += dx;
       } 
@@ -175,11 +205,17 @@ byte move(int dx, int dy){
 void main(void) {
   char pad;	// controller flags
   byte cycle = 0; //gets incremeted every loop, used for spacing things out on certain frames
-  int speed = 6;
+  int speed = 0;
+  int sprIdx = 0;
+  int i = 0;
   // 32-character array for string-building
   char str[32];
   // clear string array
   memset(str, 0, sizeof(str));
+  
+  enemies[0].alive = true;
+  enemies[0].x = 100;
+  enemies[0].y = 100;
   
   // write text to name table
   vram_fill(0xc1,32);
@@ -196,33 +232,97 @@ void main(void) {
   while (1){
     // poll controller
     pad = pad_poll(1);
-    if((pad&PAD_A) && checkJump(xpos>>2, ypos>>2, scrollx>>2))
-      pfall = -16;
     if(pad&PAD_LEFT){
-    	move(-speed, pfall);
-    	pdir = 6;
+    	move(-10 - speed>>1, pfall);
+    	pdir = 1;
       	pmov = 3;
     }
     else if(pad&PAD_RIGHT){
-    	move(speed, pfall);
+    	move(10 + speed>>1, pfall);
   	pdir = 0;
       	pmov = 3;
     }
-    else{
+    else if (sliding){
+      	pmov = 3;
+      	if(pdir)
+      	  move(-10 - speed>>1, pfall);
+        else
+      	  move(10 + speed>>1, pfall);
+    }else {
       move(0, pfall);
       pmov = 0;
     }
-    if((pad&PAD_B)&&!pshot)
-      pshot = 6;
+    if((pad&PAD_B)&&!pshot){
+      pshot = 16;
+      i = 0;
+      while (i<3 && shots[i].dir){
+      	i++;
+      }
+      if(i < 4){
+        i = i%3;
+        shots[i].dir = 4*(-(pdir<<1)+1);
+        shots[i].x = (xpos>>2)+ (14*(-(pdir<<1)+1))+6;
+        shots[i].y = (ypos>>2)+5;
+        if(sliding){
+          shots[i].x += (8*pdir);
+          shots[i].y += 8;
+        }
+      }
+    }
+    sprIdx = pdir*6 + (pmov&(cycle>>3)) + (pmov&2) + (pshot&&!pmov);
+    if(checkJump(xpos>>2, ypos>>2, scrollx>>2)){
+      if(!(sliding) && (cycle&16) && speed > 0)
+        speed--;
+      if(pad&PAD_A){
+        if(pad&PAD_DOWN && sliding<2){
+          sliding = 32;
+        	sprIdx = 14+pdir;
+          if(speed < 6)
+            speed+=3;
+        }else if(sliding<16){
+  	  pfall = -14-speed;
+          sliding = 0;
+      	}
+      } 
+    } else{
+    	sprIdx = 12+pdir;
+      	sliding = 0;
+    }
+    if (sliding)
+    	sprIdx = 14+pdir;
     scroll(scrollx>>2, 0);
     next = 0;
-    next = oam_meta_spr((xpos>>2)-1, ypos>>2, next, plr_sprite[pdir + (pmov&(cycle>>3)) + (pmov&2) + (pshot&&!pmov)]);
-    if(next != 0)
-       oam_hide_rest(next);
+    next = oam_meta_spr((xpos>>2)-1, ypos>>2, next, plr_sprite[sprIdx]);
     cycle++;
     if(pshot)
       pshot--;
     pfall++;
+    if(pfall > 14 && (cycle & 16) && (speed < 8))
+       speed++;
+    if(sliding > 0)
+    	sliding--;
+    i = 0;
+    while(i<3){
+      if(enemies[i].alive)
+      	next = oam_meta_spr(enemies[i].x, enemies[i].y, next, float_squid[(cycle&24)>>3]);
+      i++;
+    }
+    i = 0;
+    while(i<3){
+      if(shots[i].x <0 || shots[i].x > 255)
+         shots[i].dir = 0;
+      if(shots[i].dir > 0){
+        next = oam_spr(shots[i].x, shots[i].y, 0X30, 1, next);
+        shots[i].x += shots[i].dir;
+      }
+      else if (shots[i].dir < 0){
+        next = oam_spr(shots[i].x, shots[i].y, 0X30, 1|OAM_FLIP_H, next);
+        shots[i].x += shots[i].dir;
+      }
+      i++;
+    }
+    if(next != 0)
+       oam_hide_rest(next);
     ppu_wait_frame();
   }
 }

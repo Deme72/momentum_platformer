@@ -43,12 +43,20 @@ unsigned char getCollision(int x, int y){
   return (CollisionTable[table][tilenum>>2]>>(6 - ((tilenum&3)<<1))) & 3;
 }
 
-unsigned char checkMove(int x, int y, int scrollx, int dx, int dy){
+unsigned char checkMove(int x, int y, int scrollx, int dx, int dy, bool sliding){
   int i = 0;
   int j = 0;
   unsigned char ret = 0;
   x+=scrollx+dx;
   y+=dy;
+  if (sliding){
+    
+    ret |= getCollision(x, y+24);
+    ret |= getCollision(x+8, y+24);
+    ret |= getCollision(x+16, y+24);
+    ret |= getCollision(x+24, y+24);
+    return ret;
+  }
   if(dy<0){
     ret |= getCollision(x, y);
     ret |= getCollision(x+8, y);
