@@ -35,6 +35,7 @@ void importRoom(const char * in, int table){
 unsigned char getCollision(int x, int y){
   int tilenum = 0;
   int table = 0;
+  y+=16;
   if(x >= 256){
     x-= 256;
     table++;

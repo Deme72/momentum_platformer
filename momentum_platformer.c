@@ -126,7 +126,7 @@ struct squidEnemy{
 };
 
 byte next;
-int xpos = 50, ypos = 668;
+int xpos = 50, ypos = 600;
 int scrollx, scrollmin, scrollmax;
 byte pdir = 0;
 byte pshot = 0;
@@ -290,7 +290,7 @@ void main(void) {
     }
     if (sliding)
     	sprIdx = 14+pdir;
-    scroll(scrollx>>2, 0);
+    scroll(scrollx>>2, 16);
     next = 0;
     next = oam_meta_spr((xpos>>2)-1, ypos>>2, next, plr_sprite[sprIdx]);
     cycle++;
