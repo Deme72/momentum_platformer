@@ -25,6 +25,7 @@
 #include "ArchRoom.h"
 #include "PlatformRoom.h"
 #include "CharSprites.h"
+#include "Collision.h"
 
 #define NES_MIRRORING 1
 
@@ -113,11 +114,12 @@ void setup_graphics() {
 
 
 byte next;
-int xpos = 50, ypos = 167;
+int xpos = 50, ypos = 668;
 int scrollx, scrollmin, scrollmax;
 byte pdir = 0;
 byte pshot = 0;
 byte pmov = 0;
+//both screens collision data 32*30 * 2 / 4 tiles per byte
 
 void setScrollBounds(int minx, int maxx){
   while(minx > 512){
@@ -134,23 +136,27 @@ byte move(int dx, int dy){
   byte ret = 0;
   ypos += dy;
   if(dx < 0){
-    if(xpos + dx > 24){
-      if((xpos < 256 && (scrollx > (scrollmin<<1))))
-        scrollx += dx;
-      else
-        xpos += dx;
-    } else
-    	ret |= 1;
-    
+    if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx>>2, dy >>2)){
+      if(xpos + dx > 24){
+        if((xpos < 256 && (scrollx > (scrollmin<<1))))
+          scrollx += dx;
+        else
+          xpos += dx;
+      } else
+        ret |= 1;
+    }
   }
   else if (dx > 0){
-    if(xpos + dx < 928){
-      if((xpos > 400 && (scrollx < (scrollmax<<1))))
-        scrollx += dx;
+    if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx>>2, dy>>2)|1){
+      if(xpos + dx < 928){
+        if((xpos > 400 && (scrollx < (scrollmax<<1))))
+          scrollx += dx;
+        else
+          xpos += dx;
+      } 
       else
-        xpos += dx;
-    } else
-    ret |= 2;
+        ret |= 2;
+    }
   }
   return ret;
 }
@@ -170,8 +176,10 @@ void main(void) {
   vram_fill(0xc1,32);
   vram_adr(NTADR_A(0,0));
   vram_write(ArchRoom, 960);
+  importRoom(ArchRoom, 0);
   vram_adr(NTADR_B(0,0));
   vram_write(PlatformRoom, 960);
+  importRoom(PlatformRoom, ~0);
   setup_graphics();
   setScrollBounds(0, 512);
   
@@ -196,7 +204,7 @@ void main(void) {
       pshot = 6;
     scroll(scrollx>>2, 0);
     next = 0;
-    next = oam_meta_spr((xpos>>2)-1, ypos, next, plr_sprite[pdir + (pmov&(cycle>>3)) + (pmov&2) + (pshot&&!pmov)]);
+    next = oam_meta_spr((xpos>>2)-1, ypos>>2, next, plr_sprite[pdir + (pmov&(cycle>>3)) + (pmov&2) + (pshot&&!pmov)]);
     if(next != 0)
        oam_hide_rest(next);
     cycle++;
