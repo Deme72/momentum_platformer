@@ -150,16 +150,18 @@ void setScrollBounds(int minx, int maxx){
 
 byte move(int dx, int dy){
   byte ret = 0;
+  int i = 0;
   if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, 0, dy>>1, sliding))
     ypos += dy;
   else{
-    if(pfall > 0){
-       pfall-=4;
-      if(pfall < 4)
-        pfall = 2;
+    while(pfall > 0){
+       pfall-=8;
+      if(pfall < 8){
+        pfall = 0;
+      	ypos += 7-(ypos&7)-1;
+      }
     }
-    else
-       pfall+=4;
+    pfall+=4;
   }
   if(dx < 0){
     if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx, 0, sliding)){
