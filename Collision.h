@@ -21,6 +21,7 @@ const unsigned char CollisonSheet[64]={
 
 //both screens collision data 32*30 * 2 / 4 tiles per byte
 unsigned char CollisionTable[2][240] = {{0}};
+
 void importRoom(const char * in, int table){
   int i = 0;
   while(i < 960){
@@ -35,7 +36,6 @@ void importRoom(const char * in, int table){
 unsigned char getCollision(int x, int y){
   int tilenum = 0;
   int table = 0;
-  y+=16;
   if(x >= 256){
     x-= 256;
     table++;

@@ -129,10 +129,12 @@ byte next;
 int xpos = 50, ypos = 600;
 int scrollx, scrollmin, scrollmax;
 byte pdir = 0;
-byte pshot = 0;
+byte pshottimer = 0;
 byte pmov = 0;
 int pfall = 0;
 char sliding = 0;
+byte pshotidx = 0;
+
 struct bullet shots[3] = {{0, 0, 0},{0, 0, 0},{0, 0, 0}};
 //both screens collision data 32*30 * 2 / 4 tiles per byte
 struct squidEnemy enemies[3] = {{0, 0, 0},{0, 0, 0},{0, 0, 0}};
@@ -204,6 +206,23 @@ byte move(int dx, int dy){
   return ret;
 }
 
+void spawnShot(){
+  pshottimer = 16;
+  
+  if(shots[pshotidx].dir == 0){
+    shots[pshotidx].dir = 4*(-(pdir<<1)+1);
+    if(sliding){
+      shots[pshotidx].x = (xpos>>2)+ (14*(-(pdir<<1)+1))+(pdir<<3) + 6;
+      shots[pshotidx].y = (ypos>>2)+13;
+    } else {
+      shots[pshotidx].x = (xpos>>2)+ (14*(-(pdir<<1)+1))+6;
+      shots[pshotidx].y = (ypos>>2)+5;
+    }
+    pshotidx++;
+    pshotidx = pshotidx%3;
+  }
+}
+
 void main(void) {
   char pad;	// controller flags
   byte cycle = 0; //gets incremeted every loop, used for spacing things out on certain frames
@@ -215,9 +234,6 @@ void main(void) {
   // clear string array
   memset(str, 0, sizeof(str));
   
-  enemies[0].alive = true;
-  enemies[0].x = 100;
-  enemies[0].y = 100;
   
   // write text to name table
   vram_fill(0xc1,32);
@@ -254,24 +270,10 @@ void main(void) {
       move(0, pfall);
       pmov = 0;
     }
-    if((pad&PAD_B)&&!pshot){
-      pshot = 16;
-      i = 0;
-      while (i<3 && shots[i].dir){
-      	i++;
-      }
-      if(i < 4){
-        i = i%3;
-        shots[i].dir = 4*(-(pdir<<1)+1);
-        shots[i].x = (xpos>>2)+ (14*(-(pdir<<1)+1))+6;
-        shots[i].y = (ypos>>2)+5;
-        if(sliding){
-          shots[i].x += (8*pdir);
-          shots[i].y += 8;
-        }
-      }
+    if((pad&PAD_B)&&!pshottimer){
+      spawnShot();
     }
-    sprIdx = pdir*6 + (pmov&(cycle>>3)) + (pmov&2) + (pshot&&!pmov);
+    sprIdx = pdir*6 + (pmov&(cycle>>3)) + (pmov&2) + (pshottimer&&!pmov);
     if(checkJump(xpos>>2, ypos>>2, scrollx>>2)){
       if(!(sliding) && (cycle&16) && speed > 0)
         speed--;
@@ -292,12 +294,12 @@ void main(void) {
     }
     if (sliding)
     	sprIdx = 14+pdir;
-    scroll(scrollx>>2, 16);
+    scroll(scrollx>>2, 0);
     next = 0;
     next = oam_meta_spr((xpos>>2)-1, ypos>>2, next, plr_sprite[sprIdx]);
     cycle++;
-    if(pshot)
-      pshot--;
+    if(pshottimer)
+      pshottimer--;
     pfall++;
     if(pfall > 14 && (cycle & 16) && (speed < 8))
        speed++;
