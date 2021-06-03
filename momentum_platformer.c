@@ -29,56 +29,8 @@
 
 #define NES_MIRRORING 1
 
-
-#define A_LIST(name)\
-const unsigned char name[][32] = {\
-
-#define A_END };
-
-// define a 2x2 metasprite
-#define A_METASPRITE_O(code,pal)\
-{\
-        0,      0,      (code)+0,   pal, \
-        8,      0,      (code)+1,   pal, \
-        0,      8,      (code)+2,   pal, \
-        8,      8,      (code)+3,   pal, \
-        128}
-
-// define a 2x2 metasprite, flipped horizontally
-#define A_METASPRITE_O_FH(code,pal)\
-{\
-        8,      0,      (code)+0,   (pal)|OAM_FLIP_H, \
-        0,      0,      (code)+1,   (pal)|OAM_FLIP_H, \
-        8,      8,      (code)+2,   (pal)|OAM_FLIP_H, \
-        0,      8,      (code)+3,   (pal)|OAM_FLIP_H, \
-        128}
-
-// define a 2x3 metasprite
-#define A_METASPRITE_B(code,pal)\
-{\
-        0,      0,      (code)+0,   pal, \
-        8,      0,      (code)+1,   pal, \
-        0,      8,      (code)+2,   pal, \
-        8,      8,      (code)+3,   pal, \
-        0,      16,      (code)+4,   pal, \
-        8,      16,      (code)+5,   pal, \
-        128}
-
-// define a 2x3 metasprite, flipped horizontally
-#define A_METASPRITE_B_FH(code,pal)\
-{\
-        8,      0,      (code)+0,   (pal)|OAM_FLIP_H, \
-        0,      0,      (code)+1,   (pal)|OAM_FLIP_H, \
-        8,      8,      (code)+2,   (pal)|OAM_FLIP_H, \
-        0,      8,      (code)+3,   (pal)|OAM_FLIP_H, \
-        8,      16,     (code)+4,   (pal)|OAM_FLIP_H, \
-        0,      16,     (code)+5,   (pal)|OAM_FLIP_H, \
-        128}
-/*
-A_LIST(plr_sprite)
-A_METASPRITE_B(0x0, 0),
-A_METASPRITE_B_FH(0x0, 0)
-A_END*/
+#define SHOT_COOLDOWN 16
+#define SHOT_MAX 3
 
 /*{pal:"nes",layout:"nes"}*/
 const char PALETTE[32] =
@@ -94,6 +46,39 @@ const char PALETTE[32] =
 0x21, 0x31, 0x31, 0x00, // sprite palette 2
 0x0F, 0x05, 0x15, // sprite palette 3
 };
+
+int sprIdx = 0;
+
+int i = 0;
+byte cycle = 0; //gets incremeted every loop, used for spacing things out on certain frames
+char pad; // controller flags
+byte next;
+char str[32] = {0};// 32-character array for string-building
+
+int xpos = 50, ypos = 600, speed = 0, pfall = 0,
+scrollx, scrollmin, scrollmax;
+byte pdir = 0, pmov = 0;
+char sliding = 0;
+
+struct bullet{
+  int x;
+  int y;
+  int dir;
+};
+
+struct bullet shots[SHOT_MAX] = {{0, 0, 0},{0, 0, 0},{0, 0, 0}};
+byte pshottimer = 0;
+byte pshotidx = 0;
+
+struct squidEnemy{
+  int x;
+  int y;
+  bool alive;
+  struct bullet bull;
+};
+
+struct squidEnemy enemies[3] = {{0, 0, 0},{0, 0, 0},{0, 0, 0}};
+
 
 // setup PPU and tables
 void setup_graphics() {
@@ -112,33 +97,6 @@ void setup_graphics() {
   set_vram_update(updbuf);
 }
 
-struct bullet{
-  int x;
-  int y;
-  int dir;
-};
-
-struct squidEnemy{
-  int x;
-  int y;
-  bool alive;
-  struct bullet bull;
-};
-
-byte next;
-int xpos = 50, ypos = 600;
-int scrollx, scrollmin, scrollmax;
-byte pdir = 0;
-byte pshottimer = 0;
-byte pmov = 0;
-int pfall = 0;
-char sliding = 0;
-byte pshotidx = 0;
-
-struct bullet shots[3] = {{0, 0, 0},{0, 0, 0},{0, 0, 0}};
-//both screens collision data 32*30 * 2 / 4 tiles per byte
-struct squidEnemy enemies[3] = {{0, 0, 0},{0, 0, 0},{0, 0, 0}};
-
 void setScrollBounds(int minx, int maxx){
   while(minx > 512){
     minx -= 512;
@@ -149,10 +107,18 @@ void setScrollBounds(int minx, int maxx){
   scrollmax = maxx;
 }
 
+void updateSpritePos(int dx){
+  i = 0;
+  while(i<3){
+    shots[i].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+    enemies[i].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+    i++;
+  }
+}
 
 byte move(int dx, int dy){
   byte ret = 0;
-  int i = 0;
+  i = 0;
   if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, 0, dy>>1, sliding))
     ypos += dy;
   else{
@@ -169,14 +135,8 @@ byte move(int dx, int dy){
     if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx, 0, sliding)){
       if(xpos + dx > 24){
         if((xpos < 256 && (scrollx > (scrollmin<<1)))){
-          shots[0].x -= ((scrollx+dx)>>2) - (scrollx>>2);
-          shots[1].x -= ((scrollx+dx)>>2) - (scrollx>>2);
-          shots[2].x -= ((scrollx+dx)>>2) - (scrollx>>2);
-          enemies[0].x -= ((scrollx+dx)>>2) - (scrollx>>2);
-          enemies[1].x -= ((scrollx+dx)>>2) - (scrollx>>2);
-          enemies[2].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+          updateSpritePos(dx);
           scrollx += dx;
-          
         }
         else
           xpos += dx;
@@ -188,12 +148,7 @@ byte move(int dx, int dy){
     if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, dx, 0, sliding)){
       if(xpos + dx < 928){
         if((xpos > 400 && (scrollx < (scrollmax<<1)))){
-          shots[0].x -= ((scrollx+dx)>>2) - (scrollx>>2);
-          shots[1].x -= ((scrollx+dx)>>2) - (scrollx>>2);
-          shots[2].x -= ((scrollx+dx)>>2) - (scrollx>>2);
-          enemies[0].x -= ((scrollx+dx)>>2) - (scrollx>>2);
-          enemies[1].x -= ((scrollx+dx)>>2) - (scrollx>>2);
-          enemies[2].x -= ((scrollx+dx)>>2) - (scrollx>>2);
+          updateSpritePos(dx);
           scrollx += dx;
         }
         else
@@ -207,7 +162,7 @@ byte move(int dx, int dy){
 }
 
 void spawnShot(){
-  pshottimer = 16;
+  pshottimer = SHOT_COOLDOWN;
   
   if(shots[pshotidx].dir == 0){
     shots[pshotidx].dir = 4*(-(pdir<<1)+1);
@@ -219,21 +174,37 @@ void spawnShot(){
       shots[pshotidx].y = (ypos>>2)+5;
     }
     pshotidx++;
-    pshotidx = pshotidx%3;
+    pshotidx = pshotidx%SHOT_MAX;
   }
 }
 
+void drawShots(){
+    i = 0;
+    while(i<SHOT_MAX){
+      if(shots[i].x <0 || shots[i].x > 255)
+         shots[i].dir = 0;
+      if(shots[i].dir > 0){
+        next = oam_spr(shots[i].x, shots[i].y, 0X30, 1, next);
+        shots[i].x += shots[i].dir;
+      }
+      else if (shots[i].dir < 0){
+        next = oam_spr(shots[i].x, shots[i].y, 0X30, 1|OAM_FLIP_H, next);
+        shots[i].x += shots[i].dir;
+      }
+      i++;
+    }
+}
+
+void drawEnemies(){
+    i = 0;
+    while(i<3){
+      if(enemies[i].alive)
+      	next = oam_meta_spr(enemies[i].x, enemies[i].y, next, float_squid[(cycle&24)>>3]);
+      i++;
+    }
+}
+
 void main(void) {
-  char pad;	// controller flags
-  byte cycle = 0; //gets incremeted every loop, used for spacing things out on certain frames
-  int speed = 0;
-  int sprIdx = 0;
-  int i = 0;
-  // 32-character array for string-building
-  char str[32];
-  // clear string array
-  memset(str, 0, sizeof(str));
-  
   
   // write text to name table
   vram_fill(0xc1,32);
@@ -305,26 +276,8 @@ void main(void) {
        speed++;
     if(sliding > 0)
     	sliding--;
-    i = 0;
-    while(i<3){
-      if(enemies[i].alive)
-      	next = oam_meta_spr(enemies[i].x, enemies[i].y, next, float_squid[(cycle&24)>>3]);
-      i++;
-    }
-    i = 0;
-    while(i<3){
-      if(shots[i].x <0 || shots[i].x > 255)
-         shots[i].dir = 0;
-      if(shots[i].dir > 0){
-        next = oam_spr(shots[i].x, shots[i].y, 0X30, 1, next);
-        shots[i].x += shots[i].dir;
-      }
-      else if (shots[i].dir < 0){
-        next = oam_spr(shots[i].x, shots[i].y, 0X30, 1|OAM_FLIP_H, next);
-        shots[i].x += shots[i].dir;
-      }
-      i++;
-    }
+    drawEnemies();
+    drawShots();
     if(next != 0)
        oam_hide_rest(next);
     ppu_wait_frame();
