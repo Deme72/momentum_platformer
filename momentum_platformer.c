@@ -30,7 +30,15 @@
 #define NES_MIRRORING 1
 
 #define SHOT_COOLDOWN 16
+
 #define SHOT_MAX 3
+
+#define MIN_ALL 5
+#define MAX_RUN 10
+#define MAX_ALL 20
+#define JMP_DIFF 8
+#define JMP_MIN 14
+#define SLIDE_BOOST 4
 
 /*{pal:"nes",layout:"nes"}*/
 const char PALETTE[32] =
@@ -55,7 +63,7 @@ char pad; // controller flags
 byte next;
 char str[32] = {0};// 32-character array for string-building
 
-int xpos = 50, ypos = 600, speed = 0, pfall = 0,
+int xpos = 50, ypos = 600, speed = MIN_ALL, pfall = 0,
 scrollx, scrollmin, scrollmax;
 byte pdir = 0, pmov = 0;
 char sliding = 0;
@@ -122,6 +130,8 @@ byte move(int dx, int dy){
   if(!checkMove(xpos>>2, ypos>>2, scrollx>>2, 0, dy>>1, sliding))
     ypos += dy;
   else{
+    if(pfall-JMP_DIFF > speed)
+      speed = pfall-JMP_DIFF;
     while(pfall > 0){
        pfall-=8;
       if(pfall < 8){
@@ -222,21 +232,27 @@ void main(void) {
     // poll controller
     pad = pad_poll(1);
     if(pad&PAD_LEFT){
-    	move(-10 - speed>>1, pfall);
-    	pdir = 1;
-      	pmov = 3;
+      if(sliding)
+      	move(-SLIDE_BOOST - speed>>1, pfall);
+      else
+        move(-speed>>1, pfall);
+      pdir = 1;
+      pmov = 3;
     }
     else if(pad&PAD_RIGHT){
-    	move(10 + speed>>1, pfall);
-  	pdir = 0;
-      	pmov = 3;
+      if(sliding)
+      	move(SLIDE_BOOST + speed>>1, pfall);
+      else
+    	move(speed>>1, pfall);
+      pdir = 0;
+      pmov = 3;
     }
     else if (sliding){
       	pmov = 3;
       	if(pdir)
-      	  move(-10 - speed>>1, pfall);
+      	  move(-SLIDE_BOOST - speed>>1, pfall);
         else
-      	  move(10 + speed>>1, pfall);
+      	  move(SLIDE_BOOST + speed>>1, pfall);
     }else {
       move(0, pfall);
       pmov = 0;
@@ -246,16 +262,19 @@ void main(void) {
     }
     sprIdx = pdir*6 + (pmov&(cycle>>3)) + (pmov&2) + (pshottimer&&!pmov);
     if(checkJump(xpos>>2, ypos>>2, scrollx>>2)){
-      if(!(sliding) && (cycle&16) && speed > 0)
+      if(!(sliding) && !pmov && speed > MIN_ALL)
         speed--;
+      if(pmov && !sliding && ((cycle&15) == 8) && speed < MAX_RUN)
+        speed++;
       if(pad&PAD_A){
         if(pad&PAD_DOWN && sliding<2){
           sliding = 32;
         	sprIdx = 14+pdir;
-          if(speed < 6)
-            speed+=3;
         }else if(sliding<16){
-  	  pfall = -14-speed;
+          if(JMP_DIFF + speed < JMP_MIN)
+            pfall = -JMP_MIN;
+  	  else
+            pfall = -JMP_DIFF-speed;
           sliding = 0;
       	}
       } 
@@ -272,8 +291,6 @@ void main(void) {
     if(pshottimer)
       pshottimer--;
     pfall++;
-    if(pfall > 14 && (cycle & 16) && (speed < 8))
-       speed++;
     if(sliding > 0)
     	sliding--;
     drawEnemies();
